@@ -1,12 +1,10 @@
 package com.example.cw.mediaplayerdemo.mediaplayer;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
-import android.graphics.drawable.GradientDrawable;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -21,6 +19,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -183,13 +182,26 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
                             int screenWidth = QYVideoPlayerUtil.getScreenWidth(mContext);
                             float ratioX = (endX - previousX) / screenWidth;
                             Log.d(TAG, "onTouch: ratioX = " + ratioX);
-                            //seekTo
+                            //调节进度
+                            long position = (long) (ratioX * 0.2 * getDuration() + getCurrentPosition());
+                            setPlayPosition(position);
                         }
                         //竖向滑动
                         else if (Math.abs(endY - previousY) > 2 * Math.abs(endX - previousX)) {
                             int screenHeight = QYVideoPlayerUtil.getScreenHeight(mContext);
+                            int screenWidth = QYVideoPlayerUtil.getScreenWidth(mContext);
                             float ratioY = (endY - previousY) / screenHeight;
                             Log.d(TAG, "onTouch: ratioY = " + ratioY);
+                            if (mCurrentMode == MODE_FULL_SCREEN){
+                                //调节亮度
+                                if (endX < screenWidth/2){
+                                    setBrightness(-ratioY);
+                                }
+                                //调节音量
+                                else {
+                                    setVolume(-ratioY);
+                                }
+                            }
                         }
                     }
                 }else if (event.getAction() == MotionEvent.ACTION_MOVE){
@@ -361,13 +373,13 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
     @Override
     public void start(long position) {
         mMediaPlayer.seekTo((int) position);
-        mMediaPlayer.start();
+        startMediaPlayer();
     }
 
     @Override
     public void restart() {
         mMediaPlayer.seekTo(0);
-        mMediaPlayer.start();
+        startMediaPlayer();
     }
 
     @Override
@@ -546,5 +558,35 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
         }
         mCurrentMode = MODE_NORMAL;
         releasePlayer();
+    }
+
+    private void setPlayPosition(long position){
+        if (position < getDuration()){
+            mMediaPlayer.seekTo((int) position);
+            startMediaPlayer();
+        }
+    }
+
+    private void setVolume(float volume){
+        int maxVolume = getMaxVolume();
+        int currVolume = getVolume();
+        int nextVolume = (int) (maxVolume * volume + currVolume);
+        if (nextVolume > maxVolume){
+            nextVolume = maxVolume;
+        }else if (nextVolume < 0){
+            nextVolume = 0;
+        }
+        mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, nextVolume, AudioManager.FLAG_PLAY_SOUND);
+    }
+
+    private void setBrightness(float brightness){
+        WindowManager.LayoutParams lp = ((Activity)mContext).getWindow().getAttributes();
+        lp.screenBrightness += brightness;
+        if (lp.screenBrightness >1.0f){
+            lp.screenBrightness = 1.0f;
+        }else if (lp.screenBrightness <0.1f){
+            lp.screenBrightness = 0.1f;
+        }
+        ((Activity)mContext).getWindow().setAttributes(lp);
     }
 }
