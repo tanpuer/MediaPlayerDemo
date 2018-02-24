@@ -576,7 +576,7 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
         }else if (nextVolume < 0){
             nextVolume = 0;
         }
-        mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, nextVolume, AudioManager.FLAG_PLAY_SOUND);
+        mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, nextVolume, AudioManager.FLAG_SHOW_UI);
     }
 
     private void setBrightness(float brightness){
