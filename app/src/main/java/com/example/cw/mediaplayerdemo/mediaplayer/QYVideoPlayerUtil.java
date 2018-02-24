@@ -1,6 +1,9 @@
 package com.example.cw.mediaplayerdemo.mediaplayer;
 
+import android.app.ActionBar;
+import android.app.Activity;
 import android.content.Context;
+import android.view.WindowManager;
 
 import java.util.Formatter;
 import java.util.Locale;
@@ -16,6 +19,10 @@ public class QYVideoPlayerUtil {
 
     public static int getScreenWidth(Context context){
         return context.getResources().getDisplayMetrics().widthPixels;
+    }
+
+    public static int getScreenHeight(Context context){
+        return context.getResources().getDisplayMetrics().heightPixels;
     }
 
     /**
@@ -52,6 +59,21 @@ public class QYVideoPlayerUtil {
             return formatter.format("%d:%02d:%02d",hours,minutes,seconds).toString();
         }else {
             return formatter.format("%02d:%02d",minutes,seconds).toString();
+        }
+    }
+
+    public static void hideActionBar(Activity context){
+        ActionBar ab = context.getActionBar();
+        if (ab != null){
+            ab.hide();
+        }
+        context.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+    }
+
+    public static void showActionBar(Activity context){
+        ActionBar ab = context.getActionBar();
+        if (ab != null){
+            ab.show();
         }
     }
 }

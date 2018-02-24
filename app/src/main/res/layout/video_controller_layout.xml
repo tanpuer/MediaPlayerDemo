@@ -19,6 +19,7 @@
         android:layout_alignParentBottom="true"
         android:orientation="horizontal"
         android:gravity="center"
+        android:background="#77000000"
         >
 
         <Button

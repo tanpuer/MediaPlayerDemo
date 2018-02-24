@@ -1,8 +1,12 @@
 package com.example.cw.mediaplayerdemo.mediaplayer;
 
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.GradientDrawable;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -12,6 +16,7 @@ import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -49,7 +54,7 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
     public static final int MODE_NORMAL = 11;
     public static final int MODE_FULL_SCREEN = 12;
 
-    private FrameLayout mContainer;
+    private QYVideoPlayerContainer mContainer;
     private Context mContext;
     private QYTextureView mTextureView;
     private QYMediaPlayer mMediaPlayer;
@@ -64,6 +69,7 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
     private int mCurrentMode = MODE_NORMAL;
 
     private LinearLayout bottomControllerLayout;
+    private Boolean bottomLayoutVisibility = true;
     private Button centerStartBtn;
     private Button startPauseBtn;
     private Button normalFullScreenBtn;
@@ -73,6 +79,9 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
 
     private final Handler mHandler = new Handler();
     private long mDuration;
+    private int seekBarProgress;
+    private float previousX;
+    private float previousY;
 
     public QYVideoPlayer(@NonNull Context context) {
         this(context, null);
@@ -85,7 +94,7 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
     public QYVideoPlayer(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mContext = context;
-        mContainer = new FrameLayout(mContext);
+        mContainer = new QYVideoPlayerContainer(mContext);
         mContainer.setBackgroundColor(Color.BLACK);
     }
 
@@ -130,7 +139,7 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
         mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                
+                seekBarProgress = progress;
             }
 
             @Override
@@ -140,24 +149,70 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-
+                seekTo(seekBarProgress * mDuration/100);
             }
         });
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 long duration = getDuration();
+                mDuration = duration;
                 long currentPosition = getCurrentPosition();
                 currentPositionTv.setText(QYVideoPlayerUtil.formatTime(currentPosition));
                 totalPositionTv.setText(QYVideoPlayerUtil.formatTime(duration));
                 mHandler.postDelayed(this,1000);
-                mSeekBar.setProgress((int)(currentPosition/ duration));
+                mSeekBar.setProgress((int)(currentPosition * 100 / duration));
             }
         }, 200);
+        mContainer.setOnTouchListener(new OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN){
+                    previousX = event.getX();
+                    previousY = event.getY();
+                }else if (event.getAction() == MotionEvent.ACTION_UP){
+                    float endX = event.getX();
+                    float endY = event.getY();
+                    if (Math.abs(endX - previousX) < 5 && Math.abs(endY - previousY) < 5){
+                        //点击事件
+                        bottomLayoutVisibility = !bottomLayoutVisibility;
+                        bottomControllerLayout.setVisibility(bottomLayoutVisibility ? VISIBLE : INVISIBLE);
+                    }else {
+                        //横向滑动
+                        if (Math.abs(endX - previousX) > 2 * Math.abs(endY - previousY)) {
+                            int screenWidth = QYVideoPlayerUtil.getScreenWidth(mContext);
+                            float ratioX = (endX - previousX) / screenWidth;
+                            Log.d(TAG, "onTouch: ratioX = " + ratioX);
+                            //seekTo
+                        }
+                        //竖向滑动
+                        else if (Math.abs(endY - previousY) > 2 * Math.abs(endX - previousX)) {
+                            int screenHeight = QYVideoPlayerUtil.getScreenHeight(mContext);
+                            float ratioY = (endY - previousY) / screenHeight;
+                            Log.d(TAG, "onTouch: ratioY = " + ratioY);
+                        }
+                    }
+                }else if (event.getAction() == MotionEvent.ACTION_MOVE){
+
+                }
+                return true;
+            }
+        });
+        normalFullScreenBtn.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mCurrentMode == MODE_NORMAL) {
+                    enterFullScreenMode();
+                } else if (mCurrentMode == MODE_FULL_SCREEN){
+                    enterWindowMode();
+                }
+            }
+        });
     }
 
     private void startMediaPlayer(){
         mMediaPlayer.start();
+        mCurrentState = STATE_PLAYING;
         startPauseBtn.setBackgroundResource(R.drawable.ic_player_pause);
         centerStartBtn.setVisibility(INVISIBLE);
     }
@@ -225,7 +280,8 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
 
             @Override
             public void onSeekComplete(MediaPlayer mediaPlayer) {
-
+                mCurrentState = STATE_PLAYING;
+                startMediaPlayer();
             }
 
             @Override
@@ -304,16 +360,19 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
 
     @Override
     public void start(long position) {
-
+        mMediaPlayer.seekTo((int) position);
+        mMediaPlayer.start();
     }
 
     @Override
     public void restart() {
-
+        mMediaPlayer.seekTo(0);
+        mMediaPlayer.start();
     }
 
     @Override
     public void seekTo(long position) {
+//        Log.d(TAG, "seekTo: " + position);
         mMediaPlayer.seekTo((int) position);
     }
 
@@ -423,12 +482,29 @@ public class QYVideoPlayer extends FrameLayout implements IQYVideoPlayer, Textur
 
     @Override
     public void enterFullScreenMode() {
-
+        if (mCurrentMode == MODE_FULL_SCREEN){
+            return;
+        }
+        mCurrentMode = MODE_FULL_SCREEN;
+        ((Activity) mContext).setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        QYVideoPlayerUtil.hideActionBar((Activity)mContext);
+        LayoutParams layoutParams = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        mContainer.setLayoutParams(layoutParams);
+        normalFullScreenBtn.setBackgroundResource(R.drawable.ic_player_shrink);
     }
 
     @Override
     public void enterWindowMode() {
-
+        if (mCurrentMode == MODE_NORMAL){
+            return;
+        }
+        mCurrentMode = MODE_NORMAL;
+        int screenWidth = QYVideoPlayerUtil.getScreenHeight(mContext);
+        ((Activity) mContext).setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        //小视频 默认16：9
+        LayoutParams params = new LayoutParams(screenWidth, screenWidth *9/16);
+        mContainer.setLayoutParams(params);
+        normalFullScreenBtn.setBackgroundResource(R.drawable.ic_player_enlarge);
     }
 
     @Override
